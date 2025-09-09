@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		
+		<!-- PWA Meta Tags -->
+		<meta name="theme-color" content="#475569" />
+		<meta name="background-color" content="#ffffff" />
+		<meta name="description" content="AI-powered vegan recipe generator using your ingredients" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+		<meta name="apple-mobile-web-app-title" content="Kitchen" />
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="application-name" content="Kitchen Assistant" />
+		
+		<!-- PWA Manifest -->
+		<link rel="manifest" href="/manifest.json" />
+		
+		<!-- Favicon -->
+		<link rel="icon" href="/lib/assets/favicon.svg" type="image/svg+xml" />
+		
+		<!-- Apple Touch Icons -->
+		<link rel="apple-touch-icon" href="/icon-192.png" />
+		<link rel="apple-touch-icon" sizes="180x180" href="/icon-192.png" />
+		
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">%sveltekit.body%</div>
+		
+		<!-- Service Worker Registration -->
+		<script>
+			if ('serviceWorker' in navigator) {
+				window.addEventListener('load', () => {
+					navigator.serviceWorker.register('/sw.js')
+						.then(registration => {
+							console.log('SW registered: ', registration);
+							
+							// Check for updates
+							registration.addEventListener('updatefound', () => {
+								const newWorker = registration.installing;
+								if (newWorker) {
+									newWorker.addEventListener('statechange', () => {
+										if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+											// New content available, show update notification
+											if (confirm('New version available! Reload to update?')) {
+												window.location.reload();
+											}
+										}
+									});
+								}
+							});
+						})
+						.catch(registrationError => {
+							console.log('SW registration failed: ', registrationError);
+						});
+				});
+			}
+			
+			// PWA Install Prompt
+			let deferredPrompt;
+			let installButton;
+			
+			window.addEventListener('beforeinstallprompt', (e) => {
+				// Prevent Chrome 67 and earlier from automatically showing the prompt
+				e.preventDefault();
+				deferredPrompt = e;
+				
+				// Show install button
+				showInstallButton();
+			});
+			
+			function showInstallButton() {
+				// Create install button if it doesn't exist
+				if (!installButton && !localStorage.getItem('pwa-install-dismissed')) {
+					installButton = document.createElement('button');
+					installButton.innerHTML = 'Install App';
+					installButton.style.cssText = `
+						position: fixed;
+						bottom: 20px;
+						right: 20px;
+						background: #475569;
+						color: white;
+						border: none;
+						padding: 12px 16px;
+						border-radius: 12px;
+						font-weight: 600;
+						font-size: 14px;
+						cursor: pointer;
+						box-shadow: 0 4px 12px rgba(71, 85, 105, 0.3);
+						z-index: 1000;
+						transition: all 0.2s;
+						font-family: system-ui, sans-serif;
+					`;
+					
+					installButton.addEventListener('mouseenter', () => {
+						installButton.style.transform = 'translateY(-2px)';
+						installButton.style.boxShadow = '0 6px 20px rgba(71, 85, 105, 0.4)';
+					});
+					
+					installButton.addEventListener('mouseleave', () => {
+						installButton.style.transform = 'translateY(0)';
+						installButton.style.boxShadow = '0 4px 12px rgba(71, 85, 105, 0.3)';
+					});
+					
+					installButton.addEventListener('click', () => {
+						installButton.style.display = 'none';
+						if (deferredPrompt) {
+							deferredPrompt.prompt();
+							deferredPrompt.userChoice.then((choiceResult) => {
+								if (choiceResult.outcome === 'accepted') {
+									console.log('User accepted the install prompt');
+								} else {
+									console.log('User dismissed the install prompt');
+									localStorage.setItem('pwa-install-dismissed', 'true');
+								}
+								deferredPrompt = null;
+							});
+						}
+					});
+					
+					// Add close button
+					const closeButton = document.createElement('span');
+					closeButton.innerHTML = '×';
+					closeButton.style.cssText = `
+						position: absolute;
+						top: -8px;
+						right: -8px;
+						background: #dc3545;
+						color: white;
+						border-radius: 50%;
+						width: 20px;
+						height: 20px;
+						display: flex;
+						align-items: center;
+						justify-content: center;
+						font-size: 12px;
+						cursor: pointer;
+						font-weight: bold;
+					`;
+					
+					closeButton.addEventListener('click', (e) => {
+						e.stopPropagation();
+						installButton.style.display = 'none';
+						localStorage.setItem('pwa-install-dismissed', 'true');
+					});
+					
+					installButton.appendChild(closeButton);
+					document.body.appendChild(installButton);
+				}
+			}
+			
+			// Hide install button when app is installed
+			window.addEventListener('appinstalled', () => {
+				if (installButton) {
+					installButton.style.display = 'none';
+				}
+				console.log('PWA was installed');
+			});
+		</script>
+	</body>
+</html>
